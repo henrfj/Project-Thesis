@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def distance(point1, point2):
     """ Euclidean distance between two points in the grid"""
@@ -22,8 +23,8 @@ class LIMO:
         self.omega = 0  # Current turning rate
 
         # Tunable parameters
-        self.K_a = 0.1 # Wheel angle update rate
-        self.K_v = 0.1 # Wheel 
+        self.K_a = 0.05 # Wheel angle update rate
+        self.K_v = 0.05 # Wheel 
         self.dt = dt # Time between discrete simulations
         self.gamma = gamma
 
@@ -62,15 +63,60 @@ class LIMO:
 
 
 if __name__ == "__main__":
-    ### Testing single steps
-    robot = LIMO(dt=0.1, gamma=5e-7)
+    ############################
+    ### Testing single steps ###
+    ############################
+    
     steps = 1000
-    v_ref = 1
-    alpha_ref = 0
+    v_ref = 3
+    alpha_ref = 0.1
+    dt = 0.1
+    robot = LIMO(dt=dt, gamma=5e-7)
     states = np.zeros((4, 1, steps))
     alphas = np.zeros((steps,))
 
-    for i in range(100):
+    for i in range(steps):
         alphas[i] = robot.alpha
         states[:, :, i] = robot.X
         robot.one_step_algorithm(alpha_ref=alpha_ref, v_ref=v_ref)
+
+    # Plotting
+    time_axis = np.linspace(0, steps*dt-dt, steps)
+    Xs = states[0, :].T
+    Ys = states[1, :].T
+    Vs = states[2:, :]
+    abs_speeds = np.linalg.norm(Vs.T, axis=2)
+
+    plt.title("Speeds")
+    plt.plot(time_axis, abs_speeds, label="Real")
+    plt.plot(time_axis, v_ref*np.ones((steps, 1)), label="Reference")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Speed [m/s]")
+    plt.legend()
+    plt.show()
+
+    plt.title("Steering angles (alpha)")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Steering angle [rad]")
+    plt.plot(time_axis, alphas, label="Real")
+    plt.plot(time_axis, alpha_ref*np.ones((steps, 1)), label="Reference")
+    plt.legend()
+    plt.show()
+
+    plt.plot(time_axis, Xs)
+    plt.title("X pos over time") 
+    plt.xlabel("Time[s]")
+    plt.ylabel("X pos[m]")
+    plt.show()
+
+    plt.plot(time_axis, Ys)
+    plt.title("Y pos over time") 
+    plt.xlabel("Time[s]")
+    plt.ylabel("Y pos[m]")
+    plt.show()
+
+    plt.plot(Xs, Ys)
+    plt.title("Trajectory in the plane") 
+    plt.xlabel("X pos [m]")
+    plt.ylabel("Y pos [m]")
+    plt.show()
