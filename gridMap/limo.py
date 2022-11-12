@@ -71,7 +71,7 @@ if __name__ == "__main__":
     v_ref = 3
     alpha_ref = 0.0
     dt = 0.1
-    v_max = 5
+    v_max = 8
     alpha_max = 1.2
     # Book keeping
     robot = LIMO(dt=dt, gamma=5e-7)
@@ -83,14 +83,14 @@ if __name__ == "__main__":
     for i in range(steps):
         # Random driver:
         if (i*dt).is_integer: # Checks only on whole seconds
-            if np.random.choice(a=[0,1], p=[0.95, 0.05]): # Random motion has occured
+            if np.random.choice(a=[0,1], p=[0.98, 0.02]): # Random motion has occured
                 # ADD clipped reflection to max-values
-                v_rand = np.random.normal(loc=0, scale=0.5)
+                v_rand = np.random.normal(loc=0, scale=2)
                 if (v_ref+v_rand) > v_max or (v_ref+v_rand) <= 0:
                     v_ref = v_ref - v_rand
                 else:
                     v_ref = v_ref + v_rand
-                alpha_rand = np.random.normal(loc=0, scale=0.1)
+                alpha_rand = np.random.normal(loc=0, scale=0.05)
                 if np.abs(alpha_ref + alpha_rand) > alpha_max:
                     alpha_ref = alpha_ref - alpha_rand
                 else:
