@@ -10,10 +10,12 @@ class LIMO:
     """ A general Ackerman driven robot platform.
      Modelled using simple coordinated turm motion. """
     
-    def __init__(self, dt, gamma, alpha_max=1.2, v_max=8) -> None:
+    def __init__(self, dt, gamma=5e-7, alpha_max=1.2, v_max=8, d=0.5, var_alpha=0.01, var_vel=0.5) -> None:
         # Intrinsics
         self.v_max = v_max
         self.alpha_max = alpha_max
+        self.var_alpha=0.01
+        self.var_vel=0.5
         self.d = 0.5 # Distance between front and back axels
 
         # Extrinsics
@@ -26,7 +28,7 @@ class LIMO:
         self.K_a = 0.2 # Wheel angle update rate
         self.K_v = 0.2 # Wheel 
         self.dt = dt # Time between discrete simulations
-        self.gamma = gamma
+        self.gamma = gamma # division tolerance
 
     def one_step_algorithm(self, alpha_ref, v_ref):
         """
@@ -70,19 +72,20 @@ class LIMO:
         alphas = np.zeros((steps,))
         v_refs = np.ones((steps,))*v_ref
         alpha_refs = np.ones((steps,))*alpha_ref
+        psis = np.zeros((steps,))
 
         for i in range(steps):
             # Random driver:
             if (i*self.dt).is_integer: # Checks only on whole seconds
                 if np.random.choice(a=[0,1], p=[1-r_factor, r_factor]): # Random motion has occured
-                    # ADD clipped reflection to max-values
-                    v_rand = np.random.normal(loc=0, scale=2)
-                    if (v_ref+v_rand) > v_max or (v_ref+v_rand) <= 0:
+                    # ADD 'clipped reflection' to max-values
+                    v_rand = np.random.normal(loc=0, scale=self.var_vel)
+                    if (v_ref+v_rand) > self.v_max or (v_ref+v_rand) <= 0:
                         v_ref = v_ref - v_rand
                     else:
                         v_ref = v_ref + v_rand
-                    alpha_rand = np.random.normal(loc=0, scale=0.05)
-                    if np.abs(alpha_ref + alpha_rand) > alpha_max:
+                    alpha_rand = np.random.normal(loc=0, scale=self.var_alpha)
+                    if np.abs(alpha_ref + alpha_rand) > self.alpha_max:
                         alpha_ref = alpha_ref - alpha_rand
                     else:
                         alpha_ref = alpha_ref + alpha_rand
@@ -91,26 +94,31 @@ class LIMO:
             alpha_refs[i] = alpha_ref
             v_refs[i]= v_ref
             states[:, :, i] = self.X
+            psis[i] = self.psi
             self.one_step_algorithm(alpha_ref=alpha_ref, v_ref=v_ref)
 
-        return states, alphas, v_refs, alpha_refs
+
+        return states, alphas, v_refs, alpha_refs, psis
 
 if __name__ == "__main__":
-    ############################
-    ### Testing single steps ###
-    ############################
+    ###############################
+    ### Testing Brownian motion ###
+    ###############################
     # Robot
     dt = 0.1
     gamma=5e-7
     alpha_max = 1.2
     v_max = 8
-    robot = LIMO(dt=dt, gamma=gamma, alpha_max=alpha_max, v_max=v_max)
+    d=0.5
+    var_alpha=0.01
+    var_vel=0.5
+    robot = LIMO(dt=dt, gamma=gamma, d=15, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
 
     # Brownian motion
     steps = 3000
-    v_ref = 0
-    alpha_ref = 0
-    states, alphas, v_refs, alpha_refs = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
+    v_ref = 0       # Initial
+    alpha_ref = 0   # Initial
+    states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
 
     # Plotting
     time_axis = np.linspace(0, steps*dt-dt, steps)
@@ -151,4 +159,10 @@ if __name__ == "__main__":
     plt.title("Trajectory in the plane") 
     plt.xlabel("X pos [m]")
     plt.ylabel("Y pos [m]")
+    plt.show()
+
+    plt.plot(time_axis, psis)
+    plt.title("Heading over time") 
+    plt.xlabel("Time [s]")
+    plt.ylabel("Heading[rad]")
     plt.show()
