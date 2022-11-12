@@ -82,15 +82,15 @@ class LIMO:
             # Random driver:
             if (i*self.dt).is_integer: # Checks only on whole seconds
                 if np.random.choice(a=[0,1], p=[1-r_factor, r_factor]): # Random motion has occured
-                    # ADD 'clipped reflection' to max-values
-                    v_rand = np.random.normal(loc=0, scale=self.var_vel)
+                    # TODO: ADD 'clipped reflection' to max-values - right now, no reflection...
+                    v_rand = np.random.normal(loc=self.v_max/6, scale=self.var_vel)
                     if (v_ref+v_rand) > self.v_max or (v_ref+v_rand) <= 0:
-                        v_ref = v_ref - v_rand
+                        v_ref = v_ref
                     else:
                         v_ref = v_ref + v_rand
                     alpha_rand = np.random.normal(loc=0, scale=self.var_alpha)
                     if np.abs(alpha_ref + alpha_rand) > self.alpha_max:
-                        alpha_ref = alpha_ref - alpha_rand
+                        alpha_ref = alpha_ref
                     else:
                         alpha_ref = alpha_ref + alpha_rand
             # Book-keeping
@@ -111,15 +111,15 @@ if __name__ == "__main__":
     # Robot
     dt = 0.1
     gamma=5e-7
-    alpha_max = 1.2
-    v_max = 8
-    d=0.5
+    alpha_max = 0.8
+    v_max = 10
+    d=10
     var_alpha=0.01
-    var_vel=0.5
-    robot = LIMO(dt=dt, gamma=gamma, d=15, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
+    var_vel=5
+    robot = LIMO(dt=dt, gamma=gamma, d=d, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
 
     # Brownian motion
-    steps = 3000
+    steps = 10000
     v_ref = 0       # Initial
     alpha_ref = 0   # Initial
     states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)

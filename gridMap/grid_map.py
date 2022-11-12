@@ -3,6 +3,7 @@ import math
 from limo import LIMO
 import numpy as np
 import time
+import copy
 
 class Graphics:
     """
@@ -33,26 +34,57 @@ class Graphics:
         self.map = pygame.display.set_mode((self.width, self.height))       # Canvas
         self.map.blit(self.map_img, (0, 0)) 
 
-    def draw_robot(self, x, y, heading, alpha, speed):
+    def draw_robot(self, state, heading, alpha, d, robot : LIMO = None):
         """  """
-
-        x, y = self.to_pygame(x, y)
+        # Extract from state
+        x = state[0, 0]
+        y = state[1, 0]
+        v_x = state[2, 0]
+        v_y = state[3, 0]
+        v = np.sqrt(v_x**2 + v_y**2)
 
         rotated = pygame.transform.rotozoom(self.robot, math.degrees(heading), 1) # Rotate robot image to heading
+        
+        x, y = self.to_pygame(x, y)
         rect = rotated.get_rect(center=(int(x), int(y))) # Bounding rectangle in world coordinates
         self.map.blit(rotated, rect) # Draw roboto onto the map
 
-
-        heading = -heading
+        heading = -heading # World is flipped aboud x-axis.
+        # TODO: Does not rotate about center, but about back axel of vehicle.  
+        real_x = x - (d/2)*np.cos(heading)
+        real_y = y - (d/2)*np.sin(heading)
+        #pygame.draw.circle(self.map, self.red, (real_x, real_y), 3, 0)
         # Draw heading / other useful vectors
-        end_x = x + 5*speed*np.cos(heading)
-        end_y = y + 5*speed*np.sin(heading)
-        pygame.draw.line(self.map, self.red, (x, y), (end_x, end_y), width=3)
+        end_x = real_x + 5*v*np.cos(heading)
+        end_y = real_y + 5*v*np.sin(heading)
+        pygame.draw.line(self.map, self.red, (real_x, real_y), (end_x, end_y), width=3)
 
-        # Draw turn angle alpha
-        end_x = x - 500*alpha*np.cos(np.pi/2 + heading)
-        end_y = y - 500*alpha*np.sin(np.pi/2 + heading)
-        pygame.draw.line(self.map, self.green, (x, y), (end_x, end_y))
+        # Draw turn radius
+        if np.abs(np.tan(alpha))>1e-7:
+            end_x = real_x - d/np.tan(alpha)*np.cos(np.pi/2 + heading)
+            end_y = real_y - d/np.tan(alpha)*np.sin(np.pi/2 + heading)
+            pygame.draw.line(self.map, self.green, (real_x, real_y), (end_x, end_y), width=3)
+        else:
+            pass
+
+        # Draw trajectory?
+        if robot:
+            trajectory_robot = copy.deepcopy(robot) # To use the same parameters
+            # Make sure that the state is equal
+            trajectory_robot.X = state 
+            trajectory_robot.psi = heading
+            trajectory_robot.alpha = alpha
+
+            n = 100
+            for i in range(n):
+                x = trajectory_robot.X[0, 0]
+                y = trajectory_robot.X[1, 0]
+                traj_x, traj_y = self.to_pygame(x, y)
+                pygame.draw.circle(self.map, self.blue, (traj_x, traj_y), 1, 0)
+                trajectory_robot.one_step_algorithm(alpha_ref=alpha, v_ref=v)
+                
+
+
 
     def draw_sensor_data(self, point_cloud):
         for point in point_cloud:
@@ -78,6 +110,7 @@ class Ultrasonic:
         self.resolution = 10
 
     def sense_obstacle(self, x, y, heading):
+        heading = -heading
         obstacles = []
         x1, y1 = x, y
         # Cone shaped sense areas.
@@ -141,17 +174,19 @@ def step_by_step_animation():
 
 if __name__ == "__main__":
     """
-    Not real time sim:
+    Offline simulator.
     """
     # Robot
     dt = 0.1
     gamma=5e-7
     alpha_max = 1.0
     v_max = 45
-    d = 100 #Width of vehicle in pixels
-    var_alpha=0.5
+    d = 50 #Width of vehicle in pixels
+    var_alpha=0.4 #0.5
     var_vel=10
     robot = LIMO(dt=dt, gamma=gamma, d=d, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
+    robot.K_a = 0.05
+
 
     # Graphics
     MAP_DIMENSIONS = (2000, 2000)
@@ -164,11 +199,10 @@ if __name__ == "__main__":
     # Brownian motion
     steps = 5000
     v_ref = 30       # Initial
-    alpha_ref = -0.5    # Initial
-    robot.X = np.array([[MAP_DIMENSIONS[0]/2], [MAP_DIMENSIONS[1]/2], [0], [0]]) # Move robot to middle
-    states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
+    alpha_ref = -0.3    # Initial
+    robot.X = np.array([[MAP_DIMENSIONS[0]/4], [MAP_DIMENSIONS[1]/1.5], [0], [0]]) # Move robot to middle
+    states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.02)
     
-    print(np.rad2deg(np.max(alphas)))
     last_time = pygame.time.get_ticks()
     for i in range(steps):
         for event in pygame.event.get():
@@ -183,11 +217,9 @@ if __name__ == "__main__":
         gfx.map.blit(gfx.map_img, (0,0))
 
         # Get robot pose
-        x = states[0, 0, i]
-        y = states[1, 0, i]
-        gfx.draw_robot(x, y, heading=psis[i], alpha=alphas[i], speed=v_refs[i])
+        gfx.draw_robot(state=states[:, :, i], heading=psis[i], alpha=alphas[i], d=robot.d, robot=robot)
 
-        #point_cloud = ultra_sensor.sense_obstacle(x, y, psis[i])
+        #point_cloud = ultra_sensor.sense_obstacle(states[0, 0, i], states[1, 0, i], psis[i])
         #gfx.draw_sensor_data(point_cloud)
 
         # Apply to display
