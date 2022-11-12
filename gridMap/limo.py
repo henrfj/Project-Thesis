@@ -10,14 +10,14 @@ class LIMO:
     """ A general Ackerman driven robot platform.
      Modelled using simple coordinated turm motion. """
     
-    def __init__(self, dt, gamma) -> None:
+    def __init__(self, dt, gamma, alpha_max=1.2, v_max=8) -> None:
         # Intrinsics
-        self.maxspeed = 2 # m/s
-        self.max_wheel_angle = 1.2 # About 66 degrees
+        self.v_max = v_max
+        self.alpha_max = alpha_max
         self.d = 0.5 # Distance between front and back axels
 
         # Extrinsics
-        self.X = np.array([[0], [0], [0], [0]])
+        self.X = np.array([[0], [0], [0], [0]]) # State vector
         self.psi = 0    # Heading
         self.alpha = 0  # Wheel angle. Throttle level can be derived from X[2:,:]
         self.omega = 0  # Current turning rate
@@ -61,47 +61,56 @@ class LIMO:
         self.psi = self.psi + theta_next # Heading in WC
         self.omega = np.linalg.norm(v_k)*np.tan(self.alpha) / self.d
 
+    def brownian_motion(self, steps = 1000, v_ref = 3, alpha_ref = 0.0, r_factor=0.02):
+        """
+        Random walk algorithm.
+        """
+        # Book keeping
+        states = np.zeros((4, 1, steps))
+        alphas = np.zeros((steps,))
+        v_refs = np.ones((steps,))*v_ref
+        alpha_refs = np.ones((steps,))*alpha_ref
+
+        for i in range(steps):
+            # Random driver:
+            if (i*self.dt).is_integer: # Checks only on whole seconds
+                if np.random.choice(a=[0,1], p=[1-r_factor, r_factor]): # Random motion has occured
+                    # ADD clipped reflection to max-values
+                    v_rand = np.random.normal(loc=0, scale=2)
+                    if (v_ref+v_rand) > v_max or (v_ref+v_rand) <= 0:
+                        v_ref = v_ref - v_rand
+                    else:
+                        v_ref = v_ref + v_rand
+                    alpha_rand = np.random.normal(loc=0, scale=0.05)
+                    if np.abs(alpha_ref + alpha_rand) > alpha_max:
+                        alpha_ref = alpha_ref - alpha_rand
+                    else:
+                        alpha_ref = alpha_ref + alpha_rand
+            # Book-keeping
+            alphas[i] = self.alpha
+            alpha_refs[i] = alpha_ref
+            v_refs[i]= v_ref
+            states[:, :, i] = self.X
+            self.one_step_algorithm(alpha_ref=alpha_ref, v_ref=v_ref)
+
+        return states, alphas, v_refs, alpha_refs
 
 if __name__ == "__main__":
     ############################
     ### Testing single steps ###
     ############################
-    # Parameters
-    steps = 1000
-    v_ref = 3
-    alpha_ref = 0.0
+    # Robot
     dt = 0.1
-    v_max = 8
+    gamma=5e-7
     alpha_max = 1.2
-    # Book keeping
-    robot = LIMO(dt=dt, gamma=5e-7)
-    states = np.zeros((4, 1, steps))
-    alphas = np.zeros((steps,))
-    v_refs = np.ones((steps,))*v_ref
-    alpha_refs = np.ones((steps,))*alpha_ref
+    v_max = 8
+    robot = LIMO(dt=dt, gamma=gamma, alpha_max=alpha_max, v_max=v_max)
 
-    for i in range(steps):
-        # Random driver:
-        if (i*dt).is_integer: # Checks only on whole seconds
-            if np.random.choice(a=[0,1], p=[0.98, 0.02]): # Random motion has occured
-                # ADD clipped reflection to max-values
-                v_rand = np.random.normal(loc=0, scale=2)
-                if (v_ref+v_rand) > v_max or (v_ref+v_rand) <= 0:
-                    v_ref = v_ref - v_rand
-                else:
-                    v_ref = v_ref + v_rand
-                alpha_rand = np.random.normal(loc=0, scale=0.05)
-                if np.abs(alpha_ref + alpha_rand) > alpha_max:
-                    alpha_ref = alpha_ref - alpha_rand
-                else:
-                    alpha_ref = alpha_ref + alpha_rand
-
-
-        alphas[i] = robot.alpha
-        alpha_refs[i] = alpha_ref
-        v_refs[i]= v_ref
-        states[:, :, i] = robot.X
-        robot.one_step_algorithm(alpha_ref=alpha_ref, v_ref=v_ref)
+    # Brownian motion
+    steps = 3000
+    v_ref = 0
+    alpha_ref = 0
+    states, alphas, v_refs, alpha_refs = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
 
     # Plotting
     time_axis = np.linspace(0, steps*dt-dt, steps)
