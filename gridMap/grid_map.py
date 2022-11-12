@@ -33,21 +33,34 @@ class Graphics:
         self.map = pygame.display.set_mode((self.width, self.height))       # Canvas
         self.map.blit(self.map_img, (0, 0)) 
 
-    def draw_robot(self, x, y, heading):
+    def draw_robot(self, x, y, heading, alpha, speed):
         """  """
+
+        x, y = self.to_pygame(x, y)
+
         rotated = pygame.transform.rotozoom(self.robot, math.degrees(heading), 1) # Rotate robot image to heading
         rect = rotated.get_rect(center=(int(x), int(y))) # Bounding rectangle in world coordinates
         self.map.blit(rotated, rect) # Draw roboto onto the map
 
-        # Draw heading / other useful vectors
-        end_x = x + 50*np.cos(heading)
-        end_y = y + 50*np.sin(heading)
-        pygame.draw.line(self.map, self.red, (x, y), (end_x, end_y))
 
+        heading = -heading
+        # Draw heading / other useful vectors
+        end_x = x + 5*speed*np.cos(heading)
+        end_y = y + 5*speed*np.sin(heading)
+        pygame.draw.line(self.map, self.red, (x, y), (end_x, end_y), width=3)
+
+        # Draw turn angle alpha
+        end_x = x - 500*alpha*np.cos(np.pi/2 + heading)
+        end_y = y - 500*alpha*np.sin(np.pi/2 + heading)
+        pygame.draw.line(self.map, self.green, (x, y), (end_x, end_y))
 
     def draw_sensor_data(self, point_cloud):
         for point in point_cloud:
             pygame.draw.circle(self.map, self.red, point, 3, 0)
+
+    def to_pygame(self, x, y):
+        """Convert coordinates into pygame coordinates (lower-left => top left)."""
+        return (x, self.height - y)
 
 
 class Ultrasonic:
@@ -133,16 +146,16 @@ if __name__ == "__main__":
     # Robot
     dt = 0.1
     gamma=5e-7
-    alpha_max = 1.2
-    v_max = 8
-    d=0.5
-    var_alpha=0.01
-    var_vel=0.5
-    robot = LIMO(dt=dt, gamma=gamma, d=15, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
+    alpha_max = 1.0
+    v_max = 45
+    d = 100 #Width of vehicle in pixels
+    var_alpha=0.5
+    var_vel=10
+    robot = LIMO(dt=dt, gamma=gamma, d=d, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
 
     # Graphics
-    MAP_DIMENSIONS = (1000, 1000)
-    gfx = Graphics(MAP_DIMENSIONS, 'small_robot.png', 'test_map_1.png') # Also initializes the display
+    MAP_DIMENSIONS = (2000, 2000)
+    gfx = Graphics(MAP_DIMENSIONS, 'small_robot.png', 'test_map_2.png') # Also initializes the display
 
     # Sensor
     sensor_range = (250, math.radians(40))
@@ -150,12 +163,12 @@ if __name__ == "__main__":
 
     # Brownian motion
     steps = 5000
-    v_ref = 0       # Initial
-    alpha_ref = 0   # Initial
+    v_ref = 30       # Initial
+    alpha_ref = -0.5    # Initial
     robot.X = np.array([[MAP_DIMENSIONS[0]/2], [MAP_DIMENSIONS[1]/2], [0], [0]]) # Move robot to middle
     states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
     
-
+    print(np.rad2deg(np.max(alphas)))
     last_time = pygame.time.get_ticks()
     for i in range(steps):
         for event in pygame.event.get():
@@ -172,7 +185,7 @@ if __name__ == "__main__":
         # Get robot pose
         x = states[0, 0, i]
         y = states[1, 0, i]
-        gfx.draw_robot(x, y, heading=psis[i])
+        gfx.draw_robot(x, y, heading=psis[i], alpha=alphas[i], speed=v_refs[i])
 
         #point_cloud = ultra_sensor.sense_obstacle(x, y, psis[i])
         #gfx.draw_sensor_data(point_cloud)
@@ -182,4 +195,4 @@ if __name__ == "__main__":
 
         # Add sleep
         # Not optimal, as we do not know how long the processing took above. Assume 0 time...
-        time.sleep(0.01)
+        time.sleep(0.005)

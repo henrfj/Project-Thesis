@@ -6,6 +6,10 @@ def distance(point1, point2):
     return np.linalg.norm(np.asarray(point1)-np.asarray(point2))
 
 
+# TODO: 
+# 1. When speed approaches zero, the turn rate explodes to meet the desired turn  
+
+
 class LIMO:
     """ A general Ackerman driven robot platform.
      Modelled using simple coordinated turm motion. """
@@ -14,9 +18,9 @@ class LIMO:
         # Intrinsics
         self.v_max = v_max
         self.alpha_max = alpha_max
-        self.var_alpha=0.01
-        self.var_vel=0.5
-        self.d = 0.5 # Distance between front and back axels
+        self.var_alpha=var_alpha
+        self.var_vel=var_vel
+        self.d = d # Distance between front and back axels
 
         # Extrinsics
         self.X = np.array([[0], [0], [0], [0]]) # State vector
