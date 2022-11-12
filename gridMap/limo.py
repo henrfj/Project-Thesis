@@ -23,8 +23,8 @@ class LIMO:
         self.omega = 0  # Current turning rate
 
         # Tunable parameters
-        self.K_a = 0.05 # Wheel angle update rate
-        self.K_v = 0.05 # Wheel 
+        self.K_a = 0.2 # Wheel angle update rate
+        self.K_v = 0.2 # Wheel 
         self.dt = dt # Time between discrete simulations
         self.gamma = gamma
 
@@ -66,17 +66,40 @@ if __name__ == "__main__":
     ############################
     ### Testing single steps ###
     ############################
-    
+    # Parameters
     steps = 1000
     v_ref = 3
-    alpha_ref = 0.1
+    alpha_ref = 0.0
     dt = 0.1
+    v_max = 5
+    alpha_max = 1.2
+    # Book keeping
     robot = LIMO(dt=dt, gamma=5e-7)
     states = np.zeros((4, 1, steps))
     alphas = np.zeros((steps,))
+    v_refs = np.ones((steps,))*v_ref
+    alpha_refs = np.ones((steps,))*alpha_ref
 
     for i in range(steps):
+        # Random driver:
+        if (i*dt).is_integer: # Checks only on whole seconds
+            if np.random.choice(a=[0,1], p=[0.95, 0.05]): # Random motion has occured
+                # ADD clipped reflection to max-values
+                v_rand = np.random.normal(loc=0, scale=0.5)
+                if (v_ref+v_rand) > v_max or (v_ref+v_rand) <= 0:
+                    v_ref = v_ref - v_rand
+                else:
+                    v_ref = v_ref + v_rand
+                alpha_rand = np.random.normal(loc=0, scale=0.1)
+                if np.abs(alpha_ref + alpha_rand) > alpha_max:
+                    alpha_ref = alpha_ref - alpha_rand
+                else:
+                    alpha_ref = alpha_ref + alpha_rand
+
+
         alphas[i] = robot.alpha
+        alpha_refs[i] = alpha_ref
+        v_refs[i]= v_ref
         states[:, :, i] = robot.X
         robot.one_step_algorithm(alpha_ref=alpha_ref, v_ref=v_ref)
 
@@ -89,7 +112,7 @@ if __name__ == "__main__":
 
     plt.title("Speeds")
     plt.plot(time_axis, abs_speeds, label="Real")
-    plt.plot(time_axis, v_ref*np.ones((steps, 1)), label="Reference")
+    plt.plot(time_axis, v_refs, label="Reference")
     plt.xlabel("Time[s]")
     plt.ylabel("Speed [m/s]")
     plt.legend()
@@ -99,7 +122,7 @@ if __name__ == "__main__":
     plt.xlabel("Time[s]")
     plt.ylabel("Steering angle [rad]")
     plt.plot(time_axis, alphas, label="Real")
-    plt.plot(time_axis, alpha_ref*np.ones((steps, 1)), label="Reference")
+    plt.plot(time_axis, alpha_refs, label="Reference")
     plt.legend()
     plt.show()
 
