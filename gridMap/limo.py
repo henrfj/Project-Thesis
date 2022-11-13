@@ -122,6 +122,7 @@ if __name__ == "__main__":
     steps = 10000
     v_ref = 0       # Initial
     alpha_ref = 0   # Initial
+    #robot.K_a = 1.5
     states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
 
     # Plotting

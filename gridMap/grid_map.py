@@ -135,8 +135,6 @@ class Ultrasonic:
         return obstacles
 
 
-
-
 def step_by_step_animation():
     """
     A useful example
@@ -179,13 +177,13 @@ if __name__ == "__main__":
     # Robot
     dt = 0.1
     gamma=5e-7
-    alpha_max = 1.0
+    alpha_max = 0.6
     v_max = 45
     d = 50 #Width of vehicle in pixels
-    var_alpha=0.4 #0.5
-    var_vel=10
+    var_alpha = 0.2 #0.4
+    var_vel = 10
     robot = LIMO(dt=dt, gamma=gamma, d=d, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
-    robot.K_a = 0.05
+    robot.K_a = 0.2
 
 
     # Graphics
@@ -227,4 +225,4 @@ if __name__ == "__main__":
 
         # Add sleep
         # Not optimal, as we do not know how long the processing took above. Assume 0 time...
-        time.sleep(0.005)
+        # time.sleep(0.005)
