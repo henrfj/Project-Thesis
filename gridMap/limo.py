@@ -34,6 +34,15 @@ class LIMO:
         self.dt = dt # Time between discrete simulations
         self.gamma = gamma # division tolerance
 
+        #self.Tau_v = (1/5)
+        #self.K_v = self.dt / (self.dt + self.Tau_v)
+
+        """ NB! 1. order system
+            - Right now, the steering angle as well as the speed is modelled as 1. order systems
+            - The consequence is that K = dt/(dt +Tau) ~ dt/Tau in case Tau is at least 10x bigger than dt.
+            - Tau is the system time constant (=m/b for mass friction systems), 5xTau is the time before 99.3% of value is reached.
+        """
+
     def one_step_algorithm(self, alpha_ref, v_ref):
         """
         Running one step of the update algorithm.
