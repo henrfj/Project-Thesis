@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 def distance(point1, point2):
     """ Euclidean distance between two points in the grid"""
@@ -91,17 +92,36 @@ class LIMO:
             # Random driver:
             if (i*self.dt).is_integer: # Checks only on whole seconds
                 if np.random.choice(a=[0,1], p=[1-r_factor, r_factor]): # Random motion has occured
-                    # TODO: ADD 'clipped reflection' to max-values - right now, no reflection...
-                    v_rand = np.random.normal(loc=self.v_max/6, scale=self.var_vel)
+
+                    """
+                    # NB! using this method is bugged,
+                    #  and its to big to be added one way, it can still break it in the other direction...
+                    v_rand = np.random.normal(loc=0, scale=self.var_vel)
+                    alpha_rand = np.random.normal(loc=0, scale=self.var_alpha)
+                    """
+                    choices = np.random.randint(0, 2, 2)
+
+                    if choices[0]:
+                        v_rand = -self.var_vel
+                    else: 
+                        v_rand = self.var_vel
+
+                    if choices[1]:
+                        alpha_rand = -self.var_alpha
+                    else:
+                        alpha_rand = self.var_alpha
+
                     if (v_ref+v_rand) > self.v_max or (v_ref+v_rand) <= 0:
-                        v_ref = v_ref
+                        v_ref = v_ref - v_rand
                     else:
                         v_ref = v_ref + v_rand
-                    alpha_rand = np.random.normal(loc=0, scale=self.var_alpha)
-                    if np.abs(alpha_ref + alpha_rand) > self.alpha_max:
-                        alpha_ref = alpha_ref
+                    
+                    if (alpha_ref + alpha_rand) > self.alpha_max or (alpha_ref + alpha_rand) <= -self.alpha_max:
+                        alpha_ref = alpha_ref - alpha_rand
                     else:
                         alpha_ref = alpha_ref + alpha_rand
+                    
+                    
             # Book-keeping
             alphas[i] = self.alpha
             alpha_refs[i] = alpha_ref
@@ -121,10 +141,10 @@ if __name__ == "__main__":
     dt = 0.1
     gamma=5e-7
     alpha_max = 0.8
-    v_max = 10
+    v_max = 5
     d=10
-    var_alpha=0.01
-    var_vel=5
+    var_alpha= 0.2 # 0.3
+    var_vel= 0.5 # 0.5
     robot = LIMO(dt=dt, gamma=gamma, d=d, alpha_max=alpha_max, v_max=v_max, var_alpha=var_alpha, var_vel=var_vel)
 
     # Brownian motion
@@ -132,7 +152,10 @@ if __name__ == "__main__":
     v_ref = 0       # Initial
     alpha_ref = 0   # Initial
     #robot.K_a = 1.5
+    before_time = time.time()
     states, alphas, v_refs, alpha_refs, psis = robot.brownian_motion(steps=steps, v_ref=v_ref, alpha_ref=alpha_ref, r_factor=0.01)
+    print("Time:", time.time()-before_time)
+
 
     # Plotting
     time_axis = np.linspace(0, steps*dt-dt, steps)
